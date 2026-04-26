@@ -4,6 +4,14 @@ A standalone, blazing-fast Google Search CLI powered by the Gemini API. It perfo
 
 This project was inspired by the official `gemini-cli` and shares the exact same OAuth authentication mechanisms.
 
+---
+
+## ⚠️ Important note about authentication
+
+This tool reuses the official Gemini CLI's OAuth token stores at `~/.gemini/oauth_creds.json`. **It violates Google's Terms of Service** (see [gemini-cli discussion #22970](https://github.com/google-gemini/gemini-cli/discussions/22970)). Accounts doing this risk being flagged or banned.
+
+---
+
 ## ✨ Features
 
 * **Zero Config for Gemini CLI Users**: Seamlessly shares the OAuth token (`~/.gemini/oauth_creds.json`) with the official Gemini CLI.
