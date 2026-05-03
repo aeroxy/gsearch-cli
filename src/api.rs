@@ -122,6 +122,14 @@ impl ApiClient {
             builder = builder.danger_accept_invalid_certs(true);
         }
 
+        let user_agent = format!(
+            "GeminiCLI/{}/gemini-3.1-flash-lite-preview ({os}; {arch}; cli)",
+            env!("CARGO_PKG_VERSION"),
+            os = std::env::consts::OS,
+            arch = std::env::consts::ARCH,
+        );
+        builder = builder.user_agent(user_agent);
+
         Self {
             client: builder.build().unwrap_or_else(|_| Client::new()),
             token,

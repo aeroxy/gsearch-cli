@@ -128,7 +128,7 @@ impl TokenManager {
     pub async fn run_login_flow(&self) -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let port = listener.local_addr()?.port();
-        let redirect_uri = format!("http://localhost:{}/oauth2callback", port);
+        let redirect_uri = format!("http://127.0.0.1:{}/oauth2callback", port);
         
         let state = format!("{:x}", rand::random::<u128>());
 

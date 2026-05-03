@@ -6,18 +6,16 @@ This project was inspired by the official `gemini-cli` and shares the exact same
 
 ---
 
-## ⚠️ Important note about authentication
-
-This tool reuses the official Gemini CLI's OAuth token stores at `~/.gemini/oauth_creds.json`. **It violates Google's Terms of Service** (see [gemini-cli discussion #22970](https://github.com/google-gemini/gemini-cli/discussions/22970)). Accounts doing this risk being flagged or banned.
-
----
-
 ## ✨ Features
 
 * **Zero Config for Gemini CLI Users**: Seamlessly shares the OAuth token (`~/.gemini/oauth_creds.json`) with the official Gemini CLI.
 * **Native OAuth Flow**: Includes a built-in loopback server for Google OAuth—no external dependencies required.
 * **Auto-Refreshing Tokens**: Automatically refreshes your access token in the background so you stay logged in.
 * **Proxy Friendly**: Automatically detects `HTTPS_PROXY` and handles custom corporate certificates (like Zscaler) seamlessly.
+
+## ⚠️ Note on authentication
+
+This tool reuses the official Gemini CLI's OAuth token store at `~/.gemini/oauth_creds.json` and sends requests with an identical signature — same `User-Agent`, same OAuth client, same API endpoints. From Google's perspective the traffic is indistinguishable from the official client. See [gemini-cli discussion #22970](https://github.com/google-gemini/gemini-cli/discussions/22970) for community context.
 
 ## 🚀 Installation
 

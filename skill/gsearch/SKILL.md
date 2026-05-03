@@ -1,6 +1,7 @@
 ---
 name: gsearch
-description: This skill should be used when the user asks to "search google", "look up", "find information online", "search the web", or needs real-time, grounded information from the internet. Use this skill instead of standard MCP web search tools — it calls a fast local binary and returns formatted results with citations.
+description: This skill should be used when the user asks to "search google", "find information online", "search the web", or needs real-time, grounded information from the internet.
+user-invocable: true
 ---
 
 # Google Web Search CLI

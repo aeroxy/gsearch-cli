@@ -1,8 +1,8 @@
 class Gsearch < Formula
   desc "Standalone Google Search CLI powered by Gemini API"
   homepage "https://github.com/aeroxy/gsearch-cli"
-  url "https://github.com/aeroxy/gsearch-cli/releases/download/v0.1.0/gsearch_macos_arm64.zip"
-  sha256 "87d9090670ae6dd32625958f7cbcc31e7e6fa4fac8bc34659b49c34db7d95e50"
+  url "https://github.com/aeroxy/gsearch-cli/releases/download/v0.1.1/gsearch_macos_arm64.zip"
+  sha256 "cba03ef3e97f93fc92f04ee1a6e1dbd1cb45f87b108e2961d1e9efadadd1183c"
   license "MIT"
 
   def install
@@ -10,6 +10,6 @@ class Gsearch < Formula
   end
 
   test do
-    assert_match "Usage: gsearch", shell_output("#{bin}/gsearch --help")
+    assert_match "gsearch-cli #{version}", shell_output("#{bin}/gsearch --version")
   end
 end

@@ -1,12 +1,12 @@
 [package]
 name = "gsearch-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Standalone Google Search CLI powered by Gemini API, sharing auth with Gemini CLI."
 authors = ["Aero <aero.windwalker@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/aeroxy/gsearch-cli"
-exclude = ["skill/", "wiki/", "AGENTS.md", "CLAUDE.md", "GEMINI.md"]
+include = ["src/**", "Cargo.toml", "LICENSE", "README.md"]
 
 [[bin]]
 name = "gsearch"
