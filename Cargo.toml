@@ -1,6 +1,6 @@
 [package]
 name = "gsearch-cli"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Standalone Google Search CLI powered by Gemini API, sharing auth with Gemini CLI."
 authors = ["Aero <aero.windwalker@gmail.com>"]
@@ -25,3 +25,4 @@ chrono = "0.4"
 base64 = "0.22"
 urlencoding = "2.1"
 open = "5.3"
+termimad = "0.34"
