@@ -2,6 +2,8 @@ mod auth;
 mod api;
 mod grounding;
 
+use std::io::{stdout, IsTerminal};
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use auth::TokenManager;
@@ -56,7 +58,12 @@ async fn main() -> Result<()> {
     match api_client.search(&query).await {
         Ok(response) => {
             let formatted = format_response(response);
-            println!("\n{}", formatted);
+            println!();
+            if stdout().is_terminal() {
+                termimad::print_text(&formatted);
+            } else {
+                println!("{}", formatted);
+            }
         }
         Err(e) => {
             eprintln!("Error performing search: {:?}", e);
