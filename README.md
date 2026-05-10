@@ -19,11 +19,10 @@ This tool reuses the official Gemini CLI's OAuth token store at `~/.gemini/oauth
 
 ## 🚀 Installation
 
-### Homebrew (macOS, recommended)
+### Homebrew (macOS recommended)
 
 ```bash
-brew tap aeroxy/gsearch-cli
-brew install gsearch
+brew install aeroxy/tap/gsearch
 ```
 
 ### Cargo (crates.io)
