@@ -44,7 +44,9 @@ pub struct AntigravityAuth {
 #[derive(Deserialize)]
 struct TokenResponse {
     access_token: String,
-    refresh_token: String,
+    // Google's refresh-token grant does not return a refresh_token; only the
+    // initial authorization_code exchange does. Keep this optional.
+    refresh_token: Option<String>,
     expires_in: u64,
 }
 
@@ -99,7 +101,7 @@ impl TokenManager {
         if std::env::var("HTTPS_PROXY").is_ok() || std::env::var("https_proxy").is_ok() {
             builder = builder.danger_accept_invalid_certs(true);
         }
-        let client = builder.no_proxy().build()?;
+        let client = builder.build()?;
         
         let params = [
             ("grant_type", "refresh_token"),
@@ -118,7 +120,7 @@ impl TokenManager {
             anyhow::bail!("Failed to refresh token: {}", error_text);
         }
 
-        let token_res: TokenResponse = res.json().await?;
+        let token_res: TokenResponse = res.json().await.context("parse refresh token response")?;
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -129,7 +131,9 @@ impl TokenManager {
         let new_auth = AntigravityAuth {
             r#type: "antigravity".to_string(),
             access_token: token_res.access_token,
-            refresh_token: token_res.refresh_token,
+            refresh_token: token_res
+                .refresh_token
+                .unwrap_or_else(|| auth.refresh_token.clone()),
             expires_in: token_res.expires_in,
             timestamp: now,
             expired,
@@ -162,7 +166,7 @@ impl TokenManager {
         if std::env::var("HTTPS_PROXY").is_ok() || std::env::var("https_proxy").is_ok() {
             builder = builder.danger_accept_invalid_certs(true);
         }
-        let client = builder.no_proxy().build()?;
+        let client = builder.build()?;
 
         let (code, redirect_uri) = if no_browser {
             self.manual_oauth().await?
@@ -190,7 +194,9 @@ impl TokenManager {
         let auth = AntigravityAuth {
             r#type: "antigravity".to_string(),
             access_token: token.access_token,
-            refresh_token: token.refresh_token,
+            refresh_token: token
+                .refresh_token
+                .context("Login response missing refresh_token")?,
             expires_in: token.expires_in,
             timestamp: now,
             expired,
