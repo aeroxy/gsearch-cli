@@ -11,7 +11,7 @@ use api::ApiClient;
 use grounding::format_response;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "gsearch", author, version, about, long_about = None)]
 struct Cli {
     /// The search query
     query: Vec<String>,
