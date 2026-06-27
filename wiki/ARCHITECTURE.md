@@ -19,18 +19,18 @@ src/
   4. Calls `ApiClient::search` and hands the result to `grounding::format_response`.
 
 ## 2. `src/api.rs`
-- **Purpose**: Manages communication with `cloudcode-pa.googleapis.com`.
+- **Purpose**: Manages communication with `daily-cloudcode-pa.googleapis.com`.
 - **Key Mechanics**:
-  - **`resolve_project_id`**: Because the Free Tier of Gemini Code Assist uses a dynamically provisioned Google Cloud Project (e.g., `companion-free-12345`), the CLI cannot just use the user's generic `GOOGLE_CLOUD_PROJECT` env var. This module first calls the `v1internal:loadCodeAssist` endpoint to fetch the correct project ID.
-  - **`search`**: Executes the `v1internal:generateContent` request, ensuring `googleSearch` tools are injected into the payload.
-  - **User-Agent**: The client sends `GeminiCLI/{version}/gemini-3.1-flash-lite-preview ({os}; {arch}; cli)`, matching `gemini-cli`'s request signature so the API treats requests identically.
+  - **Project ID**: The Google Cloud Project ID is resolved during the OAuth login flow and stored inside the credentials file to avoid per-search resolution latency.
+  - **`search`**: Executes the `v1internal:generateContent` request, ensuring `googleSearch` tools are injected into the payload. The envelope wraps request metadata (`requestType: "agent"`, `userAgent: "antigravity"`, `requestId`, `sessionId`) required by the Antigravity backend.
+  - **User-Agent**: The client sends `antigravity/cli/1.0.9 darwin/arm64` matching Antigravity CLI request signatures.
   - **Proxy Support**: The `reqwest::Client` is built to conditionally accept invalid certs if `HTTPS_PROXY` is present, allowing it to bypass Zscaler/corporate MITM issues.
 
 ## 3. `src/auth.rs`
-- **Purpose**: Handles authentication parity with `gemini-cli`.
+- **Purpose**: Handles Antigravity developer authentication.
 - **Key Mechanics**:
-  - Reads/writes to `~/.gemini/oauth_creds.json`.
-  - **`run_login_flow`**: Spawns a local `tokio::net::TcpListener` on an ephemeral port. It opens the user's browser to the Google OAuth consent screen, intercepts the `/oauth2callback`, extracts the code, and swaps it for an access/refresh token pair. The redirect URI uses the loopback IP literal `127.0.0.1` rather than the hostname `localhost`, matching Google's OAuth spec and `gemini-cli`'s own behavior.
+  - Reads/writes to `~/.config/gsearch/antigravity.json`.
+  - **`run_login_flow`**: Spawns a local `tokio::net::TcpListener` on port `51121` (or random fallback). Supports automatic browser loopback flow or `--no-browser` manual paste flow. It retrieves the code, exchanges it, fetches account email, and auto-provisions or finalizes a managed project ID via `loadCodeAssist` and `onboardUser` polling.
   - **Auto-refresh**: Tokens expire in 1 hour. `get_token` automatically detects expiration and calls the `oauth2.googleapis.com/token` endpoint to refresh the token transparently.
 
 ## 4. `src/grounding.rs`

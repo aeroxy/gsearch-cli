@@ -19,6 +19,10 @@ struct Cli {
     /// Run the OAuth login flow
     #[arg(short, long)]
     login: bool,
+
+    /// Manual login without opening a browser automatically
+    #[arg(long)]
+    no_browser: bool,
 }
 
 #[tokio::main]
@@ -28,28 +32,24 @@ async fn main() -> Result<()> {
     let token_manager = TokenManager::new()?;
     
     if cli.login {
-        token_manager.run_login_flow().await?;
+        token_manager.run_login_flow(cli.no_browser).await?;
         return Ok(());
     }
 
     if cli.query.is_empty() {
-        println!("Usage: gsearch <QUERY> or gsearch --login");
+        println!("Usage: gsearch <QUERY> or gsearch --login [--no-browser]");
         return Ok(());
     }
     let query = cli.query.join(" ");
 
-    let token = match token_manager.get_token().await? {
-        Some(t) => t,
+    let (token, project_id) = match token_manager.get_token().await? {
+        Some((t, p)) => (t, p),
         None => {
             eprintln!("No valid OAuth token found. Running login flow automatically...");
-            token_manager.run_login_flow().await?;
+            token_manager.run_login_flow(cli.no_browser).await?;
             token_manager.get_token().await?.context("Failed to get token after login.")?
         }
     };
-
-    let project_id = std::env::var("GOOGLE_CLOUD_PROJECT")
-        .or_else(|_| std::env::var("GEMINI_PROJECT"))
-        .ok(); // Returns Option<String>
 
     let api_client = ApiClient::new(token, project_id);
     

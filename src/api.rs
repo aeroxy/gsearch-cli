@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use reqwest::Client;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Part {
@@ -23,49 +25,62 @@ pub struct Tool {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GeminiRequestInner {
     pub contents: Vec<Content>,
     pub tools: Vec<Tool>,
+    pub session_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GeminiRequest {
-    pub model: String,
     pub project: String,
+    pub model: String,
+    pub user_agent: String,
+    pub request_type: String,
+    pub request_id: String,
     pub request: GeminiRequestInner,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GroundingChunk {
     pub web: Option<WebSource>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct WebSource {
     pub uri: String,
     pub title: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GroundingSupport {
+    #[serde(default)]
     pub segment: Segment,
+    #[serde(default)]
     pub grounding_chunk_indices: Vec<usize>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
+    #[serde(default)]
     pub start_index: usize,
+    #[serde(default)]
     pub end_index: usize,
+    #[serde(default)]
     pub text: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GroundingMetadata {
+    #[serde(default)]
     pub grounding_chunks: Vec<GroundingChunk>,
+    #[serde(default)]
     pub grounding_supports: Vec<GroundingSupport>,
 }
 
@@ -75,6 +90,7 @@ pub struct GeminiResponseInner {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Candidate {
     pub content: Option<Content>,
     pub grounding_metadata: Option<GroundingMetadata>,
@@ -85,49 +101,21 @@ pub struct GeminiResponse {
     pub response: GeminiResponseInner,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoadCodeAssistMetadata {
-    pub ide_type: String,
-    pub platform: String,
-    pub plugin_type: String,
-    pub duet_project: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoadCodeAssistRequest {
-    pub cloudaicompanion_project: Option<String>,
-    pub metadata: LoadCodeAssistMetadata,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoadCodeAssistResponse {
-    pub cloudaicompanion_project: Option<String>,
-    // other fields omitted as we only need the resolved project ID
-}
-
 pub struct ApiClient {
     client: Client,
     token: String,
-    project_id: Option<String>,
+    project_id: String,
 }
 
 impl ApiClient {
-    pub fn new(token: String, project_id: Option<String>) -> Self {
+    pub fn new(token: String, project_id: String) -> Self {
         let mut builder = Client::builder();
         
         if std::env::var("HTTPS_PROXY").is_ok() || std::env::var("https_proxy").is_ok() {
             builder = builder.danger_accept_invalid_certs(true);
         }
 
-        let user_agent = format!(
-            "GeminiCLI/{}/gemini-3.1-flash-lite-preview ({os}; {arch}; cli)",
-            env!("CARGO_PKG_VERSION"),
-            os = std::env::consts::OS,
-            arch = std::env::consts::ARCH,
-        );
+        let user_agent = "antigravity/cli/1.0.9 darwin/arm64".to_string();
         builder = builder.user_agent(user_agent);
 
         Self {
@@ -137,63 +125,33 @@ impl ApiClient {
         }
     }
 
-    pub async fn resolve_project_id(&self) -> Result<String> {
-        let endpoint = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
-
-        let request = LoadCodeAssistRequest {
-            cloudaicompanion_project: self.project_id.clone(),
-            metadata: LoadCodeAssistMetadata {
-                ide_type: "IDE_UNSPECIFIED".to_string(),
-                platform: "PLATFORM_UNSPECIFIED".to_string(),
-                plugin_type: "GEMINI".to_string(),
-                duet_project: self.project_id.clone(),
-            },
-        };
-
-        let response = self.client.post(endpoint)
-            .header("Authorization", format!("Bearer {}", self.token))
-            .json(&request)
-            .send()
-            .await
-            .context("Failed to send loadCodeAssist request")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            // Don't bail entirely, fallback if possible
-            if let Some(pid) = &self.project_id {
-                return Ok(pid.clone());
-            }
-            anyhow::bail!("loadCodeAssist failed with status {}: {}", status, error_text);
-        }
-
-        let load_res: LoadCodeAssistResponse = response.json()
-            .await
-            .context("Failed to parse loadCodeAssist response")?;
-
-        if let Some(resolved_project) = load_res.cloudaicompanion_project {
-            Ok(resolved_project)
-        } else if let Some(pid) = &self.project_id {
-            Ok(pid.clone())
-        } else {
-            anyhow::bail!("No project ID returned by loadCodeAssist, and no fallback provided.");
-        }
-    }
-
     pub async fn search(&self, query: &str) -> Result<GeminiResponse> {
-        let resolved_project_id = self.resolve_project_id().await?;
+        let endpoint = "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent";
         
-        let endpoint = "https://cloudcode-pa.googleapis.com/v1internal:generateContent";
-        
+        // Retrieve model from GSEARCH_MODEL env var or default to gemini-3.1-flash-lite
+        let model = std::env::var("GSEARCH_MODEL")
+            .unwrap_or_else(|_| "gemini-3.1-flash-lite".to_string());
+
+        let request_id = format!("agent-{}", uuid_v4_short());
+
+        let mut h = DefaultHasher::new();
+        query.hash(&mut h);
+        let numeric_hash = (h.finish() & 0x7FFF_FFFF_FFFF_FFFF) as i64;
+        let session_id = format!("-{}", numeric_hash);
+
         let request = GeminiRequest {
-            model: "gemini-3.1-flash-lite-preview".to_string(),
-            project: resolved_project_id,
+            project: self.project_id.clone(),
+            model: model.clone(),
+            user_agent: "antigravity".to_string(),
+            request_type: "agent".to_string(),
+            request_id,
             request: GeminiRequestInner {
                 contents: vec![Content {
                     role: "user".to_string(),
                     parts: vec![Part { text: query.to_string() }],
                 }],
                 tools: vec![Tool { google_search: Some(GoogleSearch {}) }],
+                session_id,
             },
         };
 
@@ -216,4 +174,24 @@ impl ApiClient {
 
         Ok(gemini_response)
     }
+}
+
+fn uuid_v4_short() -> String {
+    let mut bytes = [0u8; 16];
+    for b in bytes.iter_mut() {
+        *b = rand::random::<u8>();
+    }
+    // Set UUID v4 version (4) and variant (10xx) bits
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    
+    // Format as string without hyphens or full length for simplicity, matching "uuid::Uuid::new_v4()"
+    format!(
+        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        bytes[0], bytes[1], bytes[2], bytes[3],
+        bytes[4], bytes[5],
+        bytes[6], bytes[7],
+        bytes[8], bytes[9],
+        bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+    )
 }
